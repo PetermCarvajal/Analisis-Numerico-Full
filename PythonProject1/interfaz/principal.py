@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import time
 import math
+import numpy as np
 
 from utils.validaciones import ValidadorEntradas
 from interfaz.graficas import VisualizadorGrafico
@@ -209,6 +210,13 @@ class AppMetodosNumericos:
         self.configurar_columnas_tabla()
         self.viz.fig.clf()
         self.viz.canvas.draw()
+
+        # Lógica para ocultar los errores del panel inicial si es Newton
+        if "Newton" in self.combo_metodo.get():
+            self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nTIEMPO:", fg=ESTILO["texto"])
+        else:
+            self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nERROR ABS:\nERROR REL:\nTIEMPO:", fg=ESTILO["texto"])
+
         self.actualizar_vistas()
 
     def toggle_derivada_ej1(self):
@@ -278,7 +286,8 @@ class AppMetodosNumericos:
         if "Secante" in metodo:
             cols = ("n", "x_n-1", "x_n", "f(x_n-1)", "f(x_n)", "x_n+1", "Error Abs")
         elif "Newton" in metodo:
-            cols = ("n", "x_n", "f(x_n)", "f'(x_n)", "Error Abs", "Error Rel")
+            # Eliminadas completamente las columnas de error
+            cols = ("n", "x_n", "f(x_n)", "f'(x_n)", "x_n+1")
         elif "Punto Fijo" in metodo:
             cols = ("n", "x_n", "g(x_n)", "|x_n - g(x_n)|", "Error Rel")
         else:
@@ -287,7 +296,7 @@ class AppMetodosNumericos:
         tree["columns"] = cols
         for col in cols:
             tree.heading(col, text=col)
-            width = 85 if col in ["Error Abs", "Error Rel"] else 95
+            width = 85 if col in ["Error Abs", "Error Rel", "x_n+1"] else 95
             tree.column(col, width=width, anchor="center")
 
     def configurar_columnas_tabla(self):
@@ -337,7 +346,13 @@ class AppMetodosNumericos:
         self.var_x1.set("")
         self.tabla.delete(*self.tabla.get_children())
         self.tabla_sec.delete(*self.tabla_sec.get_children())
-        self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nERROR ABS:\nERROR REL:\nTIEMPO:", fg=ESTILO["texto"])
+
+        # Ocultar o mostrar errores en la limpieza dependiendo del método
+        if "Newton" in self.combo_metodo.get():
+            self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nTIEMPO:", fg=ESTILO["texto"])
+        else:
+            self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nERROR ABS:\nERROR REL:\nTIEMPO:", fg=ESTILO["texto"])
+
         self.frame_comparativa.pack_forget()
         self.frame_tabla_sec.pack_forget()
         self.datos_actuales = None
@@ -419,15 +434,15 @@ class AppMetodosNumericos:
                 self.tree_comp.delete(*self.tree_comp.get_children())
 
                 self.tree_comp.insert("", "end", values=(
-                "Iteraciones", resultado['iteraciones_totales'], res_bi['iteraciones_totales']))
+                    "Iteraciones", resultado['iteraciones_totales'], res_bi['iteraciones_totales']))
                 self.tree_comp.insert("", "end", values=(
-                "Raíz Hallada", formatear_valor(resultado['raiz']), formatear_valor(res_bi['raiz'])))
+                    "Raíz Hallada", formatear_valor(resultado['raiz']), formatear_valor(res_bi['raiz'])))
                 self.tree_comp.insert("", "end", values=(
-                "Error Abs.", formatear_valor(resultado['historial'][-1]['error_absoluto']),
-                formatear_valor(res_bi['historial'][-1]['error_absoluto'])))
+                    "Error Abs.", formatear_valor(resultado['historial'][-1]['error_absoluto']),
+                    formatear_valor(res_bi['historial'][-1]['error_absoluto'])))
                 self.tree_comp.insert("", "end", values=(
-                "Error Rel.", f"{formatear_valor(resultado['historial'][-1]['error_relativo'])}%",
-                f"{formatear_valor(res_bi['historial'][-1]['error_relativo'])}%"))
+                    "Error Rel.", f"{formatear_valor(resultado['historial'][-1]['error_relativo'])}%",
+                    f"{formatear_valor(res_bi['historial'][-1]['error_relativo'])}%"))
 
             else:
                 if "Bisección" in metodo_sel:
@@ -453,19 +468,22 @@ class AppMetodosNumericos:
                 error_abs_final = 0
                 error_rel_final = 0
 
+            # Lógica corregida para que Newton NO imprima los errores nunca
             if historiales_multiples:
                 texto_res = (f"🔥 MÁS RÁPIDO: x0 = {resultado['x0_ganador']}\n"
                              f"RAÍZ: {formatear_valor(resultado['raiz'])}\n"
-                             f"ITERACIONES: {resultado['iteraciones_totales']}\n"
-                             f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
-                             f"ERROR REL: {formatear_valor(error_rel_final)}%\n"
-                             f"TIEMPO: {formatear_valor(tiempo_ms)} ms")
+                             f"ITERACIONES: {resultado['iteraciones_totales']}\n")
+                if "Newton" not in metodo_sel:
+                    texto_res += (f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
+                                  f"ERROR REL: {formatear_valor(error_rel_final)}%\n")
+                texto_res += f"TIEMPO: {formatear_valor(tiempo_ms)} ms"
             else:
                 texto_res = (f"RAÍZ: {formatear_valor(resultado['raiz'])}\n"
-                             f"ITERACIONES: {resultado['iteraciones_totales']}\n"
-                             f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
-                             f"ERROR REL: {formatear_valor(error_rel_final)}%\n"
-                             f"TIEMPO: {formatear_valor(tiempo_ms)} ms")
+                             f"ITERACIONES: {resultado['iteraciones_totales']}\n")
+                if "Newton" not in metodo_sel:
+                    texto_res += (f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
+                                  f"ERROR REL: {formatear_valor(error_rel_final)}%\n")
+                texto_res += f"TIEMPO: {formatear_valor(tiempo_ms)} ms"
 
             self.lbl_res_texto.config(text=texto_res, fg=color_msj)
 
@@ -506,7 +524,6 @@ class AppMetodosNumericos:
         tree.delete(*tree.get_children())
 
         for fila in historial:
-            # RESTAURAMOS LA LÓGICA DE PRIMERA ITERACIÓN PARA LOS GUIONES
             es_primera = (fila.get('n', fila.get('iter', 1)) == 1)
             err_abs = fila.get('error_absoluto', fila.get('error_abs', 0))
             err_rel = fila.get('error_relativo', fila.get('error_rel', 0))
@@ -517,20 +534,21 @@ class AppMetodosNumericos:
             n_val = fila.get('n', fila.get('iter', 1))
 
             if "Secante" in metodo:
-                # Secante no tiene columna de error relativo, así que no se pasa err_rel_str
                 valores = (n_val, formatear_valor(fila.get('x_n-1')), formatear_valor(fila.get('c')),
                            formatear_valor(fila.get('f(x_n-1)')), formatear_valor(fila.get('f(c)')),
                            formatear_valor(fila.get('x_n+1')), err_abs_str)
             elif "Newton" in metodo:
+                # Omitimos completamente insertar variables de error en la tabla
                 valores = (n_val, formatear_valor(fila.get('c')), formatear_valor(fila.get('f(c)')),
-                           formatear_valor(fila.get('f_prima(c)')), err_abs_str, err_rel_str)
+                           formatear_valor(fila.get('f_prima(c)')), formatear_valor(fila.get('x_n+1')))
             elif "Punto Fijo" in metodo:
                 valores = (
-                n_val, formatear_valor(fila.get('c')), formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
+                    n_val, formatear_valor(fila.get('c')), formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
             else:
                 valores = (
-                n_val, formatear_valor(fila.get('a')), formatear_valor(fila.get('b')), formatear_valor(fila.get('c')),
-                formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
+                    n_val, formatear_valor(fila.get('a')), formatear_valor(fila.get('b')),
+                    formatear_valor(fila.get('c')),
+                    formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
 
             tree.insert("", "end", values=valores)
 
@@ -551,7 +569,7 @@ class AppMetodosNumericos:
             self.tree_comp.delete(*self.tree_comp.get_children())
             self.tree_comp.insert("", "end", values=("Iteraciones", iter_newton, res_sec['iteraciones_totales']))
             self.tree_comp.insert("", "end", values=(
-            "Evals. Función", iter_newton * 2, res_sec.get('evaluaciones', res_sec['iteraciones_totales'] + 2)))
+                "Evals. Función", iter_newton * 2, res_sec.get('evaluaciones', res_sec['iteraciones_totales'] + 2)))
             self.tree_comp.insert("", "end",
                                   values=("Tiempo (ms)", formatear_valor(tiempo_newton), formatear_valor(t_sec)))
 
