@@ -3,6 +3,21 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import numpy as np
 import tkinter as tk
 
+def formatear_valor(valor):
+    if valor is None or valor == '-' or valor == '--------':
+        return valor
+    if isinstance(valor, str):
+        return valor
+    try:
+        val = float(valor)
+        if val == 0.0:
+            return "0.00000000"
+        if abs(val) < 1e-4 or abs(val) >= 1e8:
+            return f"{val:.8e}"
+        else:
+            return f"{val:.8f}"
+    except (ValueError, TypeError):
+        return str(valor)
 
 class VisualizadorGrafico:
     def __init__(self, master):
@@ -61,14 +76,14 @@ class VisualizadorGrafico:
 
         if event.inaxes == self.ax1 and self.annot1 is not None:
             self.annot1.xy = (event.xdata, event.ydata)
-            self.annot1.set_text(f"x = {event.xdata:.4f}\nf(x) = {event.ydata:.4f}")
+            self.annot1.set_text(f"x = {formatear_valor(event.xdata)}\nf(x) = {formatear_valor(event.ydata)}")
             self.annot1.set_visible(True)
             if self.annot2: self.annot2.set_visible(False)
             self.canvas.draw_idle()
 
         elif event.inaxes == self.ax2 and self.annot2 is not None:
             self.annot2.xy = (event.xdata, event.ydata)
-            self.annot2.set_text(f"Iter = {event.xdata:.1f}\nErr = {event.ydata:.2e}")
+            self.annot2.set_text(f"Iter = {event.xdata:.1f}\nErr = {formatear_valor(event.ydata)}")
             self.annot2.set_visible(True)
             if self.annot1: self.annot1.set_visible(False)
             self.canvas.draw_idle()
@@ -180,7 +195,7 @@ class VisualizadorGrafico:
 
             # Estrella rosada/roja para la raíz
             self.ax1.plot(raiz, f(raiz) if not es_punto_fijo else raiz, marker='*', color='#ff5555', markersize=14,
-                          label=f'Raíz: {raiz:.6f}', zorder=10)
+                          label=f'Raíz: {formatear_valor(raiz)}', zorder=10)
 
             self.ax1.set_title(titulo, color='#c8c8d8', fontsize=11, fontweight='bold')
             self.ax1.tick_params(colors='#c8c8d8', labelsize=8)

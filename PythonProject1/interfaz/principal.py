@@ -2,9 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import time
 import math
-import numpy as np
 
-from funciones.validaciones import ValidadorEntradas
+from utils.validaciones import ValidadorEntradas
 from interfaz.graficas import VisualizadorGrafico
 from metodos.biseccion import Biseccion
 from metodos.falsa_posicion import FalsaPosicion
@@ -18,6 +17,27 @@ ESTILO = {
     "texto": "#c8c8d8", "texto_sec": "#8a8a9b", "btn_calc": "#6284ff",
     "btn_limpiar": "#404059", "exito": "#50fa7b", "alerta": "#ff5555"
 }
+
+
+def formatear_valor(valor):
+    """
+    Formatea el número a 8 decimales fijos.
+    Si el valor es muy pequeño o muy grande, aplica notación científica con 8 decimales.
+    """
+    if valor is None or valor == '-' or valor == '--------':
+        return valor
+    if isinstance(valor, str):
+        return valor
+    try:
+        val = float(valor)
+        if val == 0.0:
+            return "0.00000000"
+        if abs(val) < 1e-4 or abs(val) >= 1e8:
+            return f"{val:.8e}"
+        else:
+            return f"{val:.8f}"
+    except (ValueError, TypeError):
+        return str(valor)
 
 
 # --- FUNCIÓN DE VALIDACIÓN IMPORTADA DEL PROYECTO DE LA PROFESORA ---
@@ -80,7 +100,7 @@ class AppMetodosNumericos:
         self.var_comparar_fp_bi = tk.BooleanVar(value=False)
         self.var_comparar_multi_pf = tk.BooleanVar(value=True)
         self.var_comparar_ej4 = tk.BooleanVar(value=False)
-        self.var_usar_derivada_ej1 = tk.BooleanVar(value=False)  # Nueva variable Ejercicio 1
+        self.var_usar_derivada_ej1 = tk.BooleanVar(value=False)
 
         frame_opciones = tk.Frame(self.col_izq, bg=ESTILO["bg_principal"])
         frame_opciones.pack(fill="x", pady=5)
@@ -107,7 +127,9 @@ class AppMetodosNumericos:
         self.frame_resultados = tk.LabelFrame(self.col_izq, text="Resultado Final", bg=ESTILO["bg_principal"],
                                               fg="#6284ff", padx=15, pady=15)
         self.frame_resultados.pack(fill="x", pady=10)
-        self.lbl_res_texto = tk.Label(self.frame_resultados, text="RAÍZ:\nITERACIONES:\nERROR:\nTIEMPO:",
+
+        self.lbl_res_texto = tk.Label(self.frame_resultados,
+                                      text="RAÍZ:\nITERACIONES:\nERROR ABS:\nERROR REL:\nTIEMPO:",
                                       font=("Consolas", 11, "bold"), bg=ESTILO["bg_principal"], fg=ESTILO["texto"],
                                       justify="left")
         self.lbl_res_texto.pack(anchor="w")
@@ -115,7 +137,7 @@ class AppMetodosNumericos:
         self.frame_comparativa = tk.LabelFrame(self.col_izq, text="Comparativa de Métodos", bg=ESTILO["bg_principal"],
                                                fg="#ffb86c")
         self.tree_comp = ttk.Treeview(self.frame_comparativa, columns=("Metrica", "M1", "M2"), show="headings",
-                                      height=3)
+                                      height=4)
         self.tree_comp.column("Metrica", width=100, anchor="w")
         self.tree_comp.column("M1", width=110, anchor="center")
         self.tree_comp.column("M2", width=110, anchor="center")
@@ -190,11 +212,10 @@ class AppMetodosNumericos:
         self.actualizar_vistas()
 
     def toggle_derivada_ej1(self):
-        """Alterna entre la fórmula original (que falla) y su derivada (que funciona)."""
         if self.var_usar_derivada_ej1.get():
-            self.var_funcion.set("1.6*x - 3.2 + 1/(x+1)")  # T'(λ) Derivada
+            self.var_funcion.set("1.6*x - 3.2 + 1/(x+1)")
         else:
-            self.var_funcion.set("2.5 + 0.8*x**2 - 3.2*x + np.log(x+1)")  # T(λ) Original
+            self.var_funcion.set("2.5 + 0.8*x**2 - 3.2*x + np.log(x+1)")
 
     def dibujar_campos_entrada(self):
         for widget in self.frame_campos.winfo_children(): widget.destroy()
@@ -220,8 +241,6 @@ class AppMetodosNumericos:
             elif "Bisección" in metodo:
                 self.crear_fila_input("Límite a:", self.var_x0)
                 self.crear_fila_input("Límite b:", self.var_x1)
-
-                # --- NUEVA CASILLA PARA ALTERNAR ORIGINAL Y DERIVADA ---
                 tk.Checkbutton(self.frame_campos, text="Usar Derivada T'(λ) (Encuentra el óptimo)",
                                variable=self.var_usar_derivada_ej1, bg=ESTILO["bg_principal"], fg="#50fa7b",
                                selectcolor=ESTILO["bg_principal"], command=self.toggle_derivada_ej1).pack(anchor="w",
@@ -255,6 +274,7 @@ class AppMetodosNumericos:
 
     def configurar_columnas_especificas(self, tree, metodo):
         tree.delete(*tree.get_children())
+
         if "Secante" in metodo:
             cols = ("n", "x_n-1", "x_n", "f(x_n-1)", "f(x_n)", "x_n+1", "Error Abs")
         elif "Newton" in metodo:
@@ -267,7 +287,8 @@ class AppMetodosNumericos:
         tree["columns"] = cols
         for col in cols:
             tree.heading(col, text=col)
-            tree.column(col, width=90, anchor="center")
+            width = 85 if col in ["Error Abs", "Error Rel"] else 95
+            tree.column(col, width=width, anchor="center")
 
     def configurar_columnas_tabla(self):
         metodo = self.combo_metodo.get()
@@ -279,11 +300,10 @@ class AppMetodosNumericos:
 
         self.var_comparar_ej4.set(False)
         self.var_comparar_fp_bi.set(False)
-        self.var_usar_derivada_ej1.set(False)  # Inicia apagado (para mostrar el error de la ecuación original)
+        self.var_usar_derivada_ej1.set(False)
         self.mostrar_convergencia_var.set("Newton" in sel or "Punto Fijo" in sel)
 
         if "Bisección" in sel:
-            # Fórmula original que NO TIENE RAÍZ en el intervalo (demostrativa)
             self.var_funcion.set("2.5 + 0.8*x**2 - 3.2*x + np.log(x+1)")
             self.var_x0.set("0.5")
             self.var_x1.set("2.5")
@@ -311,13 +331,13 @@ class AppMetodosNumericos:
         self.var_iter.set("100")
 
     def limpiar(self):
-        self.var_funcion.set("");
-        self.var_derivada.set("");
-        self.var_x0.set("");
+        self.var_funcion.set("")
+        self.var_derivada.set("")
+        self.var_x0.set("")
         self.var_x1.set("")
         self.tabla.delete(*self.tabla.get_children())
         self.tabla_sec.delete(*self.tabla_sec.get_children())
-        self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nERROR:\nTIEMPO:", fg=ESTILO["texto"])
+        self.lbl_res_texto.config(text="RAÍZ:\nITERACIONES:\nERROR ABS:\nERROR REL:\nTIEMPO:", fg=ESTILO["texto"])
         self.frame_comparativa.pack_forget()
         self.frame_tabla_sec.pack_forget()
         self.datos_actuales = None
@@ -346,7 +366,6 @@ class AppMetodosNumericos:
                 validar_intervalo_signo(f_eval, datos['x0'], datos['x1'])
 
         except Exception as e:
-            # Mensaje estético de error de signo para cuando prueben la ecuación errónea
             messagebox.showerror("Error de Entrada Matemático",
                                  str(e) + "\n\n💡 TIP: ¿La gráfica cruza por cero en este intervalo?")
             return
@@ -398,13 +417,17 @@ class AppMetodosNumericos:
                 self.tree_comp.heading("M1", text="Falsa Posición")
                 self.tree_comp.heading("M2", text="Bisección")
                 self.tree_comp.delete(*self.tree_comp.get_children())
+
                 self.tree_comp.insert("", "end", values=(
                 "Iteraciones", resultado['iteraciones_totales'], res_bi['iteraciones_totales']))
-                self.tree_comp.insert("", "end",
-                                      values=("Raíz Hallada", f"{resultado['raiz']:.6f}", f"{res_bi['raiz']:.6f}"))
                 self.tree_comp.insert("", "end", values=(
-                "Error Final", f"{resultado['historial'][-1]['error_absoluto']:.2e}",
-                f"{res_bi['historial'][-1]['error_absoluto']:.2e}"))
+                "Raíz Hallada", formatear_valor(resultado['raiz']), formatear_valor(res_bi['raiz'])))
+                self.tree_comp.insert("", "end", values=(
+                "Error Abs.", formatear_valor(resultado['historial'][-1]['error_absoluto']),
+                formatear_valor(res_bi['historial'][-1]['error_absoluto'])))
+                self.tree_comp.insert("", "end", values=(
+                "Error Rel.", f"{formatear_valor(resultado['historial'][-1]['error_relativo'])}%",
+                f"{formatear_valor(res_bi['historial'][-1]['error_relativo'])}%"))
 
             else:
                 if "Bisección" in metodo_sel:
@@ -422,12 +445,28 @@ class AppMetodosNumericos:
                 tiempo_ms = (time.perf_counter() - inicio_tiempo) * 1000
 
             color_msj = ESTILO["exito"] if resultado['exito'] else ESTILO["alerta"]
-            error_final = resultado['historial'][-1]['error_absoluto'] if resultado['historial'] else 0
+
+            if resultado['historial']:
+                error_abs_final = resultado['historial'][-1].get('error_absoluto', 0)
+                error_rel_final = resultado['historial'][-1].get('error_relativo', 0)
+            else:
+                error_abs_final = 0
+                error_rel_final = 0
 
             if historiales_multiples:
-                texto_res = f"🔥 MÁS RÁPIDO: x0 = {resultado['x0_ganador']}\nRAÍZ: {resultado['raiz']:.8f}\nITERACIONES: {resultado['iteraciones_totales']}\nERROR: {error_final:.2e}\nTIEMPO: {tiempo_ms:.2f} ms"
+                texto_res = (f"🔥 MÁS RÁPIDO: x0 = {resultado['x0_ganador']}\n"
+                             f"RAÍZ: {formatear_valor(resultado['raiz'])}\n"
+                             f"ITERACIONES: {resultado['iteraciones_totales']}\n"
+                             f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
+                             f"ERROR REL: {formatear_valor(error_rel_final)}%\n"
+                             f"TIEMPO: {formatear_valor(tiempo_ms)} ms")
             else:
-                texto_res = f"RAÍZ: {resultado['raiz']:.8f}\nITERACIONES: {resultado['iteraciones_totales']}\nERROR: {error_final:.2e}\nTIEMPO: {tiempo_ms:.2f} ms"
+                texto_res = (f"RAÍZ: {formatear_valor(resultado['raiz'])}\n"
+                             f"ITERACIONES: {resultado['iteraciones_totales']}\n"
+                             f"ERROR ABS: {formatear_valor(error_abs_final)}\n"
+                             f"ERROR REL: {formatear_valor(error_rel_final)}%\n"
+                             f"TIEMPO: {formatear_valor(tiempo_ms)} ms")
+
             self.lbl_res_texto.config(text=texto_res, fg=color_msj)
 
         except Exception as e:
@@ -465,24 +504,33 @@ class AppMetodosNumericos:
     def actualizar_tabla(self, historial, metodo, tree=None):
         if tree is None: tree = self.tabla
         tree.delete(*tree.get_children())
+
         for fila in historial:
+            # RESTAURAMOS LA LÓGICA DE PRIMERA ITERACIÓN PARA LOS GUIONES
             es_primera = (fila.get('n', fila.get('iter', 1)) == 1)
-            err_abs_str = "--------" if es_primera else f"{fila.get('error_absoluto', fila.get('error_abs', 0)):.2e}"
-            err_rel_str = "--------" if es_primera else f"{fila.get('error_relativo', fila.get('error_rel', 0)):.6f}%"
+            err_abs = fila.get('error_absoluto', fila.get('error_abs', 0))
+            err_rel = fila.get('error_relativo', fila.get('error_rel', 0))
+
+            err_abs_str = "--------" if es_primera else formatear_valor(err_abs)
+            err_rel_str = "--------" if es_primera else f"{formatear_valor(err_rel)}%"
+
             n_val = fila.get('n', fila.get('iter', 1))
 
             if "Secante" in metodo:
-                valores = (
-                n_val, f"{fila.get('x_n-1', '-'):.6f}", f"{fila.get('c', '-'):.6f}", f"{fila.get('f(x_n-1)', '-'):.2e}",
-                f"{fila.get('f(c)', '-'):.2e}", f"{fila.get('x_n+1', '-'):.6f}", err_abs_str)
+                # Secante no tiene columna de error relativo, así que no se pasa err_rel_str
+                valores = (n_val, formatear_valor(fila.get('x_n-1')), formatear_valor(fila.get('c')),
+                           formatear_valor(fila.get('f(x_n-1)')), formatear_valor(fila.get('f(c)')),
+                           formatear_valor(fila.get('x_n+1')), err_abs_str)
             elif "Newton" in metodo:
-                valores = (n_val, f"{fila.get('c', '-'):.6f}", f"{fila.get('f(c)', '-'):.2e}",
-                           f"{fila.get('f_prima(c)', '-'):.2e}", err_abs_str, err_rel_str)
+                valores = (n_val, formatear_valor(fila.get('c')), formatear_valor(fila.get('f(c)')),
+                           formatear_valor(fila.get('f_prima(c)')), err_abs_str, err_rel_str)
             elif "Punto Fijo" in metodo:
-                valores = (n_val, f"{fila.get('c', '-'):.6f}", f"{fila.get('f(c)', '-'):.6f}", err_abs_str, err_rel_str)
+                valores = (
+                n_val, formatear_valor(fila.get('c')), formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
             else:
-                valores = (n_val, f"{fila.get('a', '-'):.6f}", f"{fila.get('b', '-'):.6f}", f"{fila.get('c', '-'):.6f}",
-                           f"{fila.get('f(c)', '-'):.2e}", err_abs_str, err_rel_str)
+                valores = (
+                n_val, formatear_valor(fila.get('a')), formatear_valor(fila.get('b')), formatear_valor(fila.get('c')),
+                formatear_valor(fila.get('f(c)')), err_abs_str, err_rel_str)
 
             tree.insert("", "end", values=valores)
 
@@ -490,8 +538,8 @@ class AppMetodosNumericos:
         self.frame_comparativa.pack(fill="x", pady=10)
         self.frame_comparativa.config(text="Comparativa vs Secante")
         f_eval = ValidadorEntradas.crear_evaluador(datos_newton['funcion_str'])
-        self.tree_comp.heading("Metrica", text="Métrica");
-        self.tree_comp.heading("M1", text="Newton");
+        self.tree_comp.heading("Metrica", text="Métrica")
+        self.tree_comp.heading("M1", text="Newton")
         self.tree_comp.heading("M2", text="Secante")
 
         try:
@@ -504,7 +552,8 @@ class AppMetodosNumericos:
             self.tree_comp.insert("", "end", values=("Iteraciones", iter_newton, res_sec['iteraciones_totales']))
             self.tree_comp.insert("", "end", values=(
             "Evals. Función", iter_newton * 2, res_sec.get('evaluaciones', res_sec['iteraciones_totales'] + 2)))
-            self.tree_comp.insert("", "end", values=("Tiempo (ms)", f"{tiempo_newton:.3f}", f"{t_sec:.3f}"))
+            self.tree_comp.insert("", "end",
+                                  values=("Tiempo (ms)", formatear_valor(tiempo_newton), formatear_valor(t_sec)))
 
             return res_sec['historial']
         except:
@@ -515,8 +564,8 @@ class AppMetodosNumericos:
         self.frame_comparativa.config(text="Comparativa vs Newton")
         f_eval = ValidadorEntradas.crear_evaluador(datos_secante['funcion_str'])
         df_eval = ValidadorEntradas.crear_evaluador("np.exp(-x/2) * (1 - x/2)")
-        self.tree_comp.heading("Metrica", text="Métrica");
-        self.tree_comp.heading("M1", text="Secante");
+        self.tree_comp.heading("Metrica", text="Métrica")
+        self.tree_comp.heading("M1", text="Secante")
         self.tree_comp.heading("M2", text="Newton")
 
         try:
@@ -529,7 +578,8 @@ class AppMetodosNumericos:
             self.tree_comp.insert("", "end", values=("Iteraciones", iter_secante, res_newton['iteraciones_totales']))
             self.tree_comp.insert("", "end",
                                   values=("Evals. Función", evals_secante, res_newton['iteraciones_totales'] * 2))
-            self.tree_comp.insert("", "end", values=("Tiempo (ms)", f"{tiempo_secante:.3f}", f"{t_newton:.3f}"))
+            self.tree_comp.insert("", "end",
+                                  values=("Tiempo (ms)", formatear_valor(tiempo_secante), formatear_valor(t_newton)))
 
             return res_newton['historial']
         except:
